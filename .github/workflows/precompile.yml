@@ -14,7 +14,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { target: x86_64-linux-gnu,       os: ubuntu-latest }
+          - { target: x86_64-linux-gnu,       os: ubuntu-22.04 }
+          - { target: aarch64-linux-gnu,      os: ubuntu-22.04-arm }
           - { target: aarch64-macos-none,     os: macos-latest }
 
     steps:
