@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.10.7
+
+- Add Linux ARM precompiled NIF target
+
 ## 0.10.6
 
 - Update OXC dependency to 0.11
