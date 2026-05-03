@@ -33,13 +33,17 @@ jobs:
       - name: Build NIF
         shell: bash
         run: |
-          IFS=- read -r TARGET_ARCH TARGET_OS TARGET_ABI <<< "${{ matrix.target }}"
-          export TARGET_ARCH TARGET_OS TARGET_ABI
-
           mix local.hex --force
           mix local.rebar --force
           mix deps.get
-          QUICKBEAM_BUILD=1 mix compile
+          mix deps.compile
+
+          if [ "${{ matrix.target }}" = "aarch64-linux-gnu" ]; then
+            IFS=- read -r TARGET_ARCH TARGET_OS TARGET_ABI <<< "${{ matrix.target }}"
+            export TARGET_ARCH TARGET_OS TARGET_ABI
+          fi
+
+          QUICKBEAM_BUILD=1 mix compile --no-deps-check
 
       - name: Package artifact
         run: |
