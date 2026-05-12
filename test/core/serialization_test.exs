@@ -196,6 +196,30 @@ defmodule QuickBEAM.Core.SerializationTest do
     end
   end
 
+  # Regression: on ERTS 15.0–15.2.2 (OTP 27.0 / 27.1 / 27.2) the BEAM's
+  # `enif_make_map_from_arrays` segfaults when called from a non-scheduler
+  # thread with more than 128 unique keys on an `enif_alloc_env`-allocated
+  # env. QuickBEAM always converts JS→BEAM on its QuickJS worker thread, so
+  # any JS object literal with >128 unique keys crashes the test suite
+  # (exit 139, no Elixir/Erlang stacktrace) on those affected runtimes.
+  # Fixed in OTP 27.3 (ERTS 15.2.7+) via OTP-20098 / erlang/otp#10975.
+  # Unaffected: OTP 26.x, OTP 27.3+, OTP 28.x.
+  describe "regression: enif_make_map_from_arrays NIF-thread crash" do
+    test "object with 129 unique string keys", %{rt: rt} do
+      {:ok, map} =
+        QuickBEAM.eval(rt, """
+          (() => {
+            const o = {};
+            for (let i = 0; i < 129; i++) o['k' + i] = i;
+            return o;
+          })()
+        """)
+
+      assert map_size(map) == 129
+      assert map["k128"] == 128
+    end
+  end
+
   describe "Beam.call roundtrip" do
     setup do
       handlers = %{
