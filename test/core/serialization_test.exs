@@ -196,6 +196,69 @@ defmodule QuickBEAM.Core.SerializationTest do
     end
   end
 
+  # Regression: an earlier QuickBEAM release segfaulted the BEAM when
+  # marshaling a JS object/array with more than 128 entries back to Elixir
+  # (sharp cliff at 128 → 129, signature of a fixed-capacity native buffer).
+  # Each shape — object, array, and Object.entries() — exercised a distinct
+  # code path in js_to_beam.zig, so all three are pinned.
+  describe "large containers (>128 entries)" do
+    test "object with 129 string keys", %{rt: rt} do
+      {:ok, map} =
+        QuickBEAM.eval(rt, """
+          (() => {
+            const o = {};
+            for (let i = 0; i < 129; i++) o['k' + i] = i;
+            return o;
+          })()
+        """)
+
+      assert map_size(map) == 129
+      assert map["k0"] == 0
+      assert map["k128"] == 128
+    end
+
+    test "object with 500 string keys", %{rt: rt} do
+      {:ok, map} =
+        QuickBEAM.eval(rt, """
+          (() => {
+            const o = {};
+            for (let i = 0; i < 500; i++) o['k' + i] = i;
+            return o;
+          })()
+        """)
+
+      assert map_size(map) == 500
+      assert map["k499"] == 499
+    end
+
+    test "array with 129 elements", %{rt: rt} do
+      {:ok, list} = QuickBEAM.eval(rt, "Array.from({length: 129}, (_, i) => i)")
+      assert length(list) == 129
+      assert List.last(list) == 128
+    end
+
+    test "array with 500 elements", %{rt: rt} do
+      {:ok, list} = QuickBEAM.eval(rt, "Array.from({length: 500}, (_, i) => i)")
+      assert length(list) == 500
+      assert List.last(list) == 499
+    end
+
+    test "Object.entries on a 200-key object", %{rt: rt} do
+      {:ok, list} =
+        QuickBEAM.eval(rt, """
+          (() => {
+            const o = {};
+            for (let i = 0; i < 200; i++) o['k' + i] = i;
+            return Object.entries(o);
+          })()
+        """)
+
+      assert length(list) == 200
+      assert hd(list) == ["k0", 0]
+      assert List.last(list) == ["k199", 199]
+    end
+  end
+
   describe "Beam.call roundtrip" do
     setup do
       handlers = %{
